@@ -1,0 +1,54 @@
+from flask import Flask, request, jsonify
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from joblib import dump, load
+import pandas as pd
+import os
+
+app = Flask(__name__)
+MODEL_PATH = 'disease_model.joblib'
+
+# Train the model (you can replace this with real patient data)
+def train_and_save_model():
+    data = {
+        'age': [25, 30, 45, 50, 60, 22, 35],
+        'bmi': [22.0, 28.5, 30.0, 31.2, 29.0, 20.0, 27.5],
+        'blood_pressure': [120, 130, 140, 135, 150, 110, 128],
+        'diabetes': [0, 1, 1, 1, 1, 0, 1]
+    }
+    df = pd.DataFrame(data)
+    X = df.drop('diabetes', axis=1)
+    y = df['diabetes']
+
+    model = RandomForestClassifier()
+    model.fit(X, y)
+    dump(model, MODEL_PATH)
+    print("Model trained and saved.")
+
+# Load or train model
+if not os.path.exists(MODEL_PATH):
+    train_and_save_model()
+
+model = load(MODEL_PATH)
+
+# API endpoint for prediction
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.get_json()
+        features = [data['age'], data['bmi'], data['blood_pressure']]
+        prediction = model.predict([features])
+        return jsonify({'prediction': int(prediction[0])})
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+# Home route
+@app.route('/')
+def home():
+    return '''
+    <h2>AI Disease Prediction API</h2>
+    <p>Send POST request to <code>/predict</code> with JSON: {"age": int, "bmi": float, "blood_pressure": int}</p>
+    '''
+
+if __name__ == '__main__':
+    app.run(debug=True)
